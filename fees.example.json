@@ -1,0 +1,26 @@
+{
+  "csfloat": {
+    "purchase_pct": "0",
+    "funding_pct": "3",
+    "seller_pct": "2",
+    "withdrawal_pct": "3",
+    "funding_fixed_rub": "0",
+    "withdrawal_fixed_rub": "0",
+    "withdrawal_minimum_rub": "0",
+    "cashout_available": false,
+    "verified": false,
+    "note": "ИЛЛЮСТРАЦИЯ. Укажите тарифы своего аккаунта, региона и метода оплаты/вывода."
+  },
+  "skinport": {
+    "purchase_pct": "0",
+    "funding_pct": "3",
+    "seller_pct": "12",
+    "withdrawal_pct": "3",
+    "funding_fixed_rub": "0",
+    "withdrawal_fixed_rub": "0",
+    "withdrawal_minimum_rub": "0",
+    "cashout_available": false,
+    "verified": false,
+    "note": "ИЛЛЮСТРАЦИЯ. Нулевой минимум вывода не подтверждён; проверьте перед включением."
+  }
+}

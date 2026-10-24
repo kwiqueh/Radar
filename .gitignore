@@ -1,0 +1,15 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.db
+*.db-*
+htmlcov/
+.coverage
+*.egg-info/
+dist/
+build/
+fees.local.json
+playwright-report/
