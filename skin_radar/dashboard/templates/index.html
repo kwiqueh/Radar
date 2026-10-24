@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Skin Radar</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='/style.css') }}">
+</head>
+<body data-demo="{{ 'true' if demo else 'false' }}">
+  <header>
+    <div>
+      <p class="eyebrow">CS2 MARKET INTELLIGENCE</p>
+      <h1>SKIN <span>RADAR</span></h1>
+      <p class="subtitle">Кандидаты на межплощадочную маржу после комиссий</p>
+    </div>
+    <div class="header-actions">
+      <span id="mode" class="badge {{ 'demo' if demo else 'live' }}">{{ 'DEMO · синтетические данные' if demo else 'LIVE · статус источников ниже' }}</span>
+      <button id="scan-button">Сканировать</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="configuration" class="notice" role="status"></div>
+    <section class="metrics">
+      <article><span>Кандидатов</span><strong id="candidate-count">—</strong></article>
+      <article><span>Лучшая прибыль</span><strong id="best-profit">—</strong></article>
+      <article><span>Лучший ROI</span><strong id="best-roi">—</strong></article>
+      <article><span>Последний скан</span><strong id="last-scan">—</strong></article>
+    </section>
+
+    <section id="offer-detail" class="panel" hidden></section>
+    <section class="panel filters-panel">
+      <div class="panel-title"><div><p class="eyebrow">КОНТРОЛЬ</p><h2>Фильтры</h2></div><button id="save-filters" class="secondary">Сохранить</button></div>
+      <div id="filters" class="filter-grid"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title"><div><p class="eyebrow">TELEGRAM</p><h2>История уведомлений</h2></div></div>
+      <div id="alerts" class="muted">Загрузка…</div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title"><div><p class="eyebrow">ВОЗМОЖНОСТИ</p><h2>Текущие кандидаты</h2></div><span class="muted">Нажмите строку для истории цены</span></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th data-sort="item_name">Предмет</th><th data-sort="buy">Покупка</th>
+            <th data-sort="sell">Продажа</th><th data-sort="profit">Прибыль</th>
+            <th data-sort="roi">ROI</th><th data-sort="liquidity">Ликвидность</th>
+            <th data-sort="risk">Риск</th><th>Уверенность</th>
+          </tr></thead>
+          <tbody id="offers"><tr><td colspan="8" class="empty">Загрузка…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="lower-grid">
+      <article class="panel">
+        <div class="panel-title"><div><p class="eyebrow">ИСТОРИЯ</p><h2 id="history-title">Выберите предмет</h2></div></div>
+        <canvas id="price-chart" width="700" height="250"></canvas>
+      </article>
+      <article class="panel">
+        <div class="panel-title"><div><p class="eyebrow">ИСТОЧНИКИ</p><h2>Состояние API</h2></div></div>
+        <div id="providers" class="provider-list"></div>
+      </article>
+    </section>
+
+    <section class="panel warning">
+      <strong>Доходность не гарантирована.</strong> Ask — цена объявления продавца, а не обещание выкупа.
+      Проверяйте реальную заявку покупателя, trade lock, способ вывода и комиссии перед сделкой.
+    </section>
+  </main>
+  <script src="{{ url_for('static', path='/app.js') }}" defer></script>
+</body>
+</html>

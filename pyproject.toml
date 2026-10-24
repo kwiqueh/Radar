@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "skin-radar"
+version = "0.1.0"
+description = "Read-only CS2 market spread scanner with explicit risk labels"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "aiogram>=3.15,<4",
+  "fastapi>=0.115,<1",
+  "httpx[brotli]>=0.27,<1",
+  "jinja2>=3.1,<4",
+  "pydantic>=2.10,<3",
+  "pydantic-settings>=2.7,<3",
+  "uvicorn[standard]>=0.34,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3,<9",
+  "pytest-asyncio>=0.25,<1",
+  "ruff>=0.9,<1",
+]
+
+[project.scripts]
+skin-radar = "skin_radar.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["skin_radar*"]
+
+[tool.setuptools.package-data]
+"skin_radar.dashboard" = ["templates/*.html", "static/*.css", "static/*.js"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
