@@ -24,8 +24,12 @@ def calculate_costs(buy: MarketQuote, sell: MarketQuote, settings: Settings) -> 
         note="DEMO assumptions only",
     )
     fallback = demo_fees if settings.mode == "demo" else VenueFees()
-    purchase = settings.venue_fees.get(buy.provider, fallback)
-    sale = settings.venue_fees.get(sell.provider, fallback)
+    purchase = (
+        demo_fees if settings.mode == "demo" else settings.venue_fees.get(buy.provider, fallback)
+    )
+    sale = (
+        demo_fees if settings.mode == "demo" else settings.venue_fees.get(sell.provider, fallback)
+    )
     if settings.mode == "live" and (not purchase.verified or not sale.verified):
         raise ValueError("Verify fee profiles for both venues before computing live profit")
     purchase_fee = buy.price_rub * purchase.purchase_pct / HUNDRED

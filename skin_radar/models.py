@@ -13,6 +13,7 @@ class QuoteKind(StrEnum):
     BUY_ORDER = "buy_order"
     LAST_SALE = "last_sale"
     MEDIAN_SALE = "median_sale"
+    CATALOG_REFERENCE = "catalog_reference"
 
 
 class Confidence(StrEnum):

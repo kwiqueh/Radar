@@ -34,7 +34,7 @@ def build_router(service: RadarService) -> Router:
 
     @router.message(Command("top"))
     async def top(message: Message) -> None:
-        offers = service.storage.opportunities(5)
+        offers = service.current_opportunities(5)
         if not offers:
             await message.answer("Кандидатов пока нет. Используйте /scan.")
             return

@@ -9,6 +9,7 @@ import uvicorn
 from skin_radar.bot import run_bot
 from skin_radar.config import Settings
 from skin_radar.dashboard import create_app
+from skin_radar.local_settings import load_local_settings
 from skin_radar.service import RadarService
 
 
@@ -85,7 +86,7 @@ def main() -> None:
     )
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
-    settings = Settings()
+    settings = load_local_settings(Settings())
     if args.demo and args.live:
         raise SystemExit("Choose only one: --demo or --live")
     if args.demo:

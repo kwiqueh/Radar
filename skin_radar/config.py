@@ -34,6 +34,7 @@ class Settings(BaseSettings):
 
     mode: str = "demo"
     database_path: Path = Path("skin_radar.db")
+    local_config_file: Path = Path("settings.local.json")
     host: str = "127.0.0.1"
     port: int = Field(default=8000, ge=1, le=65535)
     scan_interval_seconds: int = Field(default=370, ge=60)
@@ -64,7 +65,7 @@ class Settings(BaseSettings):
     fixed_cost_rub: Decimal = Field(default=Decimal("0"), ge=0)
     unexpected_cost_reserve_pct: Decimal = Field(default=Decimal("2"), ge=0, le=100)
 
-    enabled_providers: Annotated[tuple[str, ...], NoDecode] = ("csfloat", "skinport")
+    enabled_providers: Annotated[tuple[str, ...], NoDecode] = ("csfloat", "skinport", "market_csgo")
     excluded_items: Annotated[tuple[str, ...], NoDecode] = ()
     csfloat_pages: int = Field(default=2, ge=1, le=10)
     http_concurrency: int = Field(default=4, ge=1, le=16)
@@ -92,8 +93,8 @@ class Settings(BaseSettings):
             raise ValueError("reserve_rub must be smaller than budget_rub")
         if self.max_item_price_rub > self.budget_rub - self.reserve_rub:
             raise ValueError("max_item_price_rub must fit inside budget minus reserve")
-        if not set(self.enabled_providers) <= {"csfloat", "skinport"}:
-            raise ValueError("Enabled providers must be csfloat and/or skinport")
+        if not set(self.enabled_providers) <= {"csfloat", "skinport", "market_csgo"}:
+            raise ValueError("Unknown provider")
         if self.host not in {"127.0.0.1", "::1", "localhost"}:
             raise ValueError("Dashboard is local-only; host must be a loopback address")
         return self
