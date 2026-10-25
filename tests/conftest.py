@@ -10,7 +10,11 @@ from skin_radar.models import MarketQuote, QuoteKind
 
 @pytest.fixture
 def settings(tmp_path):
-    return Settings(_env_file=None, database_path=tmp_path / "radar.db")
+    return Settings(
+        _env_file=None,
+        database_path=tmp_path / "radar.db",
+        local_config_file=tmp_path / "settings.local.json",
+    )
 
 
 @pytest.fixture

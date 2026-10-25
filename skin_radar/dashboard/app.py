@@ -3,8 +3,9 @@ from __future__ import annotations
 import asyncio
 import logging
 from contextlib import asynccontextmanager, suppress
+from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException, Query, Request
@@ -14,6 +15,8 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.responses import JSONResponse
 
+from skin_radar import __version__
+from skin_radar.local_settings import SetupUpdate
 from skin_radar.service import FILTER_FIELDS, RadarService
 
 LOG = logging.getLogger(__name__)
@@ -44,7 +47,7 @@ def create_app(service: RadarService) -> FastAPI:
             await task
         await service.close()
 
-    app = FastAPI(title="Skin Radar", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="Skin Radar", version=__version__, lifespan=lifespan)
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost", "[::1]"])
 
     @app.middleware("http")
@@ -80,7 +83,7 @@ def create_app(service: RadarService) -> FastAPI:
 
     @app.get("/api/opportunities")
     async def opportunities(limit: int = Query(default=100, ge=1, le=500)) -> list[dict[str, Any]]:
-        return [item.model_dump(mode="json") for item in service.storage.opportunities(limit)]
+        return [item.model_dump(mode="json") for item in service.current_opportunities(limit)]
 
     @app.post("/api/scan")
     async def scan() -> dict[str, Any]:
@@ -90,6 +93,42 @@ def create_app(service: RadarService) -> FastAPI:
     @app.get("/api/status")
     async def status() -> list[dict[str, Any]]:
         return [state.model_dump(mode="json") for state in service.storage.provider_states()]
+
+    @app.get("/api/quotes")
+    async def quote_catalog(
+        search: str = Query(default="", max_length=150),
+        provider: str = Query(default="", max_length=30),
+        max_price_rub: Annotated[Decimal | None, Query(gt=0)] = None,
+        limit: int = Query(default=50, ge=1, le=200),
+        offset: int = Query(default=0, ge=0, le=1000000),
+    ):
+        return service.storage.quote_page(
+            limit=limit,
+            offset=offset,
+            search=search,
+            provider=provider,
+            max_price_rub=float(max_price_rub) if max_price_rub else None,
+        )
+
+    @app.get("/api/setup")
+    async def setup():
+        return service.setup_status()
+
+    @app.post("/api/setup")
+    async def save_setup(request: Request):
+        if len(await request.body()) > 32768:
+            raise HTTPException(status_code=413, detail="Settings too large")
+        try:
+            update = SetupUpdate.model_validate(await request.json())
+            return await service.apply_setup(update)
+        except ValueError:
+            raise HTTPException(
+                status_code=422, detail="Настройки не сохранены: проверьте значения."
+            ) from None
+        except OSError:
+            raise HTTPException(
+                status_code=500, detail="Не удалось записать локальные настройки."
+            ) from None
 
     @app.get("/api/stats")
     async def stats() -> dict[str, Any]:

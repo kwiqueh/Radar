@@ -29,6 +29,45 @@
     </section>
 
     <section id="offer-detail" class="panel" hidden></section>
+    <section class="panel">
+      <div class="panel-title"><div><p class="eyebrow">ПОДКЛЮЧЕНИЕ</p><h2>Настройка реальных данных</h2></div></div>
+      <p class="muted">Market.CSGO — справочный каталог в рублях. CSFloat — объявления с вашим API-ключом. Skinport может отказать в доступе. Ключ вводится только на вашем ПК.</p>
+      <form id="setup-form">
+        <div class="filter-grid">
+          <label>Режим<select id="setup-mode"><option value="demo">Демонстрация</option><option value="live">Реальные данные</option></select></label>
+          <label>API-ключ CSFloat<input id="setup-key" type="password" autocomplete="off" placeholder="Пусто — сохранить имеющийся"></label>
+          <label>Фактический USD/RUB<input id="setup-usd" type="number" min="0.01" step="any"></label>
+          <label>Фактический EUR/RUB<input id="setup-eur" type="number" min="0.01" step="any"></label>
+        </div>
+        <p id="key-status" class="muted"></p>
+        <div class="connection-options">
+          <label><input type="checkbox" name="source" value="market_csgo"> Market.CSGO</label>
+          <label><input type="checkbox" name="source" value="csfloat"> CSFloat</label>
+          <label><input type="checkbox" name="source" value="skinport"> Skinport</label>
+        </div>
+        <p><label><input id="setup-terms" type="checkbox"> Я проверил условия выбранных API и имею право использовать эти данные</label></p>
+        <p><label><input id="setup-fx" type="checkbox"> Я проверил указанные курсы сейчас (для расчётов USD/EUR; не требуется для просмотра RUB-каталога)</label></p>
+        <details><summary>Комиссии для расчёта прибыли</summary>
+          <p class="muted">Заполните тарифы вашего аккаунта, региона и способа оплаты. Нулевые значения ниже не означают отсутствия комиссий. Без подтверждённых профилей прибыль не вычисляется.</p>
+          <div id="fee-profiles"></div>
+        </details>
+        <p><button type="submit" id="apply-setup">Сохранить и проверить источники</button></p>
+        <p id="setup-message" role="status" class="muted"></p>
+      </form>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title"><div><p class="eyebrow">РЫНОК</p><h2>Котировки площадок</h2></div><span id="quote-total" class="muted"></span></div>
+      <p class="muted">Каталог виден и без расчёта прибыли. Справочная цена Market.CSGO не считается заявкой покупателя и не участвует в арбитраже. Неизвестный объём продаж остаётся неизвестным.</p>
+      <form id="catalog-form" class="catalog-controls">
+        <input id="quote-search" placeholder="Поиск: AK-47 | Redline" aria-label="Поиск предмета">
+        <select id="quote-provider" aria-label="Площадка"><option value="">Все площадки</option><option value="market_csgo">Market.CSGO</option><option value="csfloat">CSFloat</option><option value="skinport">Skinport</option></select>
+        <input id="quote-max" type="number" min="0.01" step="any" placeholder="Максимум ₽ (курс из настроек)" aria-label="Максимальная цена">
+        <button type="submit" class="secondary">Найти</button>
+      </form>
+      <div class="table-wrap"><table><thead><tr><th>Предмет</th><th>Площадка</th><th>Цена источника</th><th>Тип цены</th><th>Обновлено (источник)</th></tr></thead><tbody id="quote-rows"></tbody></table></div>
+      <p class="connection-options"><button id="quote-prev" class="secondary">Назад</button><button id="quote-next" class="secondary">Далее</button></p>
+    </section>
     <section class="panel filters-panel">
       <div class="panel-title"><div><p class="eyebrow">КОНТРОЛЬ</p><h2>Фильтры</h2></div><button id="save-filters" class="secondary">Сохранить</button></div>
       <div id="filters" class="filter-grid"></div>
@@ -71,5 +110,6 @@
     </section>
   </main>
   <script src="{{ url_for('static', path='/app.js') }}" defer></script>
+  <script src="{{ url_for('static', path='/connections.js') }}" defer></script>
 </body>
 </html>

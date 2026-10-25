@@ -13,3 +13,5 @@ dist/
 build/
 fees.local.json
 playwright-report/
+settings.local.json
+.radar-settings-*

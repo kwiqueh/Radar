@@ -10,10 +10,12 @@ from decimal import Decimal, InvalidOperation
 from skin_radar.alerts.telegram import TelegramNotifier
 from skin_radar.config import Settings, VenueFees
 from skin_radar.core.scanner import OpportunityScanner
+from skin_radar.local_settings import SetupUpdate, save_local_settings
 from skin_radar.models import Opportunity, ProviderState
 from skin_radar.providers import CSFloatProvider, DemoProvider, SkinportProvider
 from skin_radar.providers.base import MarketProvider
-from skin_radar.providers.http import ResilientHttpClient
+from skin_radar.providers.http import APIError, ResilientHttpClient
+from skin_radar.providers.market_csgo import MarketCSGOProvider
 from skin_radar.storage import SQLiteStorage
 
 LOG = logging.getLogger(__name__)
@@ -57,7 +59,8 @@ class RadarService:
         self._last_fetch = 0.0
         self._cached_quotes = []
         self._cached_states = []
-        if settings.mode == "live" and settings.fees_file.is_file():
+        self._provider_cache = {}
+        if settings.mode == "live" and not settings.venue_fees and settings.fees_file.is_file():
             data = json.loads(settings.fees_file.read_text(encoding="utf-8"))
             self.settings = Settings.model_validate(
                 {
@@ -89,6 +92,8 @@ class RadarService:
             providers.append(CSFloatProvider(self.settings, self.http))
         if "skinport" in enabled:
             providers.append(SkinportProvider(self.settings, self.http))
+        if "market_csgo" in enabled:
+            providers.append(MarketCSGOProvider(self.http))
         return providers
 
     async def scan(self) -> list[Opportunity]:
@@ -110,12 +115,13 @@ class RadarService:
                     states=self._cached_states,
                     started_at=started,
                     mode=self.settings.mode,
+                    replace_quotes=False,
                 )
                 if self.settings.mode == "live" and self.notifier.configured:
                     await self._send_new_alerts(items[:5])
                 return items
             results = await asyncio.gather(
-                *(provider.fetch() for provider in providers), return_exceptions=True
+                *(self._fetch_provider(provider) for provider in providers), return_exceptions=True
             )
             quotes = []
             states: list[ProviderState] = []
@@ -127,7 +133,7 @@ class RadarService:
                             name=provider.name,
                             enabled=True,
                             healthy=False,
-                            detail=f"{type(result).__name__}: API недоступен, demo не подставлено.",
+                            detail=self._provider_error(provider.name, result),
                         )
                     )
                 else:
@@ -143,12 +149,6 @@ class RadarService:
                     )
             states.extend(
                 [
-                    ProviderState(
-                        name="market_csgo",
-                        enabled=False,
-                        healthy=False,
-                        detail="Отключён: документация недоступна из среды; адаптер не проверен.",
-                    ),
                     ProviderState(
                         name="steam_community_market",
                         enabled=False,
@@ -238,4 +238,104 @@ class RadarService:
                 warnings.append(f"{name}: вывод средств недоступен в профиле.")
         if not self.settings.allow_unknown_hold:
             warnings.append("Предметы с неизвестным сроком передачи исключаются.")
+        if "market_csgo" in self.settings.enabled_providers:
+            warnings.append(
+                "Market.CSGO: справочный каталог виден; эти цены не участвуют в арбитраже."
+            )
         return warnings
+
+    def current_opportunities(self, limit: int = 100) -> list[Opportunity]:
+        quotes = self._cached_quotes
+        if not quotes:
+            saved = self.storage.opportunities(limit)
+            quotes = [q for item in saved for q in (item.buy, item.sell)]
+        return OpportunityScanner(self.settings).scan(quotes)[:limit]
+
+    @staticmethod
+    def _provider_error(name: str, error: BaseException) -> str:
+        if not isinstance(error, APIError):
+            return f"{type(error).__name__}: данные API не распознаны; demo не подставлено."
+        detail = str(error)
+        if "HTTP 403" in detail or "HTTP 401" in detail:
+            if name == "csfloat":
+                return "Доступ запрещён (401/403). Укажите свой API-ключ CSFloat; cookies не нужны."
+            return "Доступ запрещён (401/403): ограничение площадки/сети. Защита не обходится."
+        return detail  # APIError is deliberately sanitized by ResilientHttpClient.
+
+    def setup_status(self) -> dict:
+        s = self.settings
+        return {
+            "mode": s.mode,
+            "enabled_providers": s.enabled_providers,
+            "api_terms_accepted": s.api_terms_accepted,
+            "usd_rub": str(s.usd_rub),
+            "eur_rub": str(s.eur_rub),
+            "fx_verified_at": s.fx_verified_at.isoformat() if s.fx_verified_at else None,
+            "csfloat_key_set": bool(s.csfloat_api_key),
+            "venue_fees": {
+                name: fees.model_dump(mode="json") for name, fees in s.venue_fees.items()
+            },
+            "warnings": self.configuration_warnings(),
+        }
+
+    async def apply_setup(self, update: SetupUpdate) -> dict:
+        async with self._scan_lock:
+            values = update.model_dump(exclude_none=True)
+            settings = Settings.model_validate({**self.settings.model_dump(), **values})
+            # Write successfully before changing the running service. Mode histories stay separate.
+            save_local_settings(settings.local_config_file, update)
+            changed_mode = settings.mode != self.settings.mode
+            old_key = self.settings.csfloat_api_key
+            self.settings = settings
+            if changed_mode:
+                self.storage = SQLiteStorage(
+                    settings.database_path.with_stem(
+                        f"{settings.database_path.stem}.{settings.mode}"
+                    )
+                )
+                self._apply_saved_filters()
+            # Explicitly selected sources take precedence over old filter selections.
+            if update.enabled_providers is not None:
+                self.settings = Settings.model_validate(
+                    {**self.settings.model_dump(), "enabled_providers": update.enabled_providers}
+                )
+                self.storage.set_filter("enabled_providers", ",".join(update.enabled_providers))
+            self._cached_quotes, self._cached_states = [], []
+            # Keep per-process provider cooldown across mode and settings changes.
+            self._last_fetch = 0.0
+            cached = self._provider_cache.get("csfloat")
+            if old_key != settings.csfloat_api_key and cached and isinstance(cached[1], APIError):
+                if any(code in str(cached[1]) for code in ("HTTP 401", "HTTP 403")):
+                    self._provider_cache.pop("csfloat")
+            return self.setup_status()
+
+    async def _fetch_provider(self, provider):
+        cached = self._provider_cache.get(provider.name)
+        if cached and isinstance(cached[1], APIError):
+            if any(code in str(cached[1]) for code in ("HTTP 401", "HTTP 403")):
+                # Authentication/anti-bot denials need a changed prerequisite, not more polling.
+                raise cached[1]
+        if cached and time.monotonic() - cached[0] < max(370, self.settings.scan_interval_seconds):
+            result = cached[1]
+            if isinstance(result, Exception):
+                raise result
+            from skin_radar.providers.base import ProviderResult
+
+            return ProviderResult(
+                [
+                    q
+                    if q.demo
+                    else q.model_copy(
+                        update={"price_rub": q.price * self.settings.rate(q.currency)}
+                    )
+                    for q in result.quotes
+                ],
+                result.detail,
+            )
+        try:
+            result = await provider.fetch()
+        except Exception as exc:
+            self._provider_cache[provider.name] = (time.monotonic(), exc)
+            raise
+        self._provider_cache[provider.name] = (time.monotonic(), result)
+        return result
