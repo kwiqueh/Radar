@@ -11,7 +11,7 @@ from skin_radar.alerts.telegram import TelegramNotifier
 from skin_radar.config import Settings, VenueFees
 from skin_radar.core.scanner import OpportunityScanner
 from skin_radar.local_settings import SetupUpdate, save_local_settings
-from skin_radar.models import Opportunity, ProviderState
+from skin_radar.models import Opportunity, ProviderState, QuoteKind
 from skin_radar.providers import CSFloatProvider, DemoProvider, SkinportProvider
 from skin_radar.providers.base import MarketProvider
 from skin_radar.providers.http import APIError, ResilientHttpClient
@@ -218,22 +218,53 @@ class RadarService:
     def configuration_warnings(self) -> list[str]:
         if self.settings.mode == "demo":
             return ["DEMO: синтетические котировки; автоматические уведомления отключены."]
-        warnings = []
+        if not self.settings.enabled_providers:
+            return ["В блоке «Настройка реальных данных» выберите хотя бы одну площадку."]
         if not self.settings.api_terms_accepted:
-            warnings.append("Условия API не подтверждены; запросы выключены.")
+            return [
+                "Чтение API выключено. В блоке «Настройка реальных данных» подтвердите "
+                "право использования выбранных API и нажмите «Сохранить и проверить источники». "
+                "Для просмотра рублёвого каталога Market.CSGO курсы и комиссии не нужны."
+            ]
+        trading_quotes = [
+            q
+            for q in self._cached_quotes
+            if not q.demo
+            and q.provider in self.settings.enabled_providers
+            and q.kind in {QuoteKind.ACTIVE_LISTING, QuoteKind.BUY_ORDER}
+        ]
+        sources = {q.provider for q in trading_quotes}
+        if len(sources) < 2:
+            message = "Для расчёта межплощадочной маржи нужны котировки минимум двух площадок. "
+            message += "Причины отказов подключения указаны в разделе «Состояние API»."
+            if "market_csgo" in self.settings.enabled_providers:
+                return [
+                    "RUB-каталог Market.CSGO можно смотреть без настройки курсов и комиссий. "
+                    "Его справочные цены не участвуют в расчёте арбитража.",
+                    message,
+                ]
+            return [message]
+        warnings = []
         verified = self.settings.fx_verified_at
-        if (
+        needs_fx = any(q.currency != "RUB" for q in trading_quotes)
+        if needs_fx and (
             verified is None
             or verified.tzinfo is None
             or not 0
             <= (datetime.now(UTC) - verified).total_seconds()
             <= self.settings.max_fx_age_hours * 3600
         ):
-            warnings.append("Укажите фактические курсы и свежий FX_VERIFIED_AT с часовым поясом.")
-        for name in self.settings.enabled_providers:
+            warnings.append(
+                "Для расчёта маржи укажите фактические курсы в настройках "
+                "и отметьте «Я проверил указанные курсы сейчас»."
+            )
+        for name in sorted(sources):
             fees = self.settings.venue_fees.get(name)
             if fees is None or not fees.verified:
-                warnings.append(f"{name}: профиль комиссий не подтверждён в fees.local.json.")
+                warnings.append(
+                    f"{name}: для расчёта маржи заполните тарифы "
+                    "в блоке «Комиссии для расчёта прибыли» и подтвердите их проверку."
+                )
             elif not fees.cashout_available:
                 warnings.append(f"{name}: вывод средств недоступен в профиле.")
         if not self.settings.allow_unknown_hold:

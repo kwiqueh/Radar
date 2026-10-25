@@ -59,7 +59,7 @@ async function refresh() {
   q('#best-profit').textContent=offers.length?rub(Math.max(...offers.map(x=>+x.costs.net_profit_rub))):'—';
   q('#best-roi').textContent=offers.length?pct(Math.max(...offers.map(x=>+x.costs.roi_pct))):'—';
   q('#last-scan').textContent=stats.latest_scan?new Date(stats.latest_scan.finished_at).toLocaleTimeString('ru-RU'):'—';
-  q('#configuration').textContent=(stats.warnings||[]).join(' ');
+  q('#configuration').innerHTML='<ul>'+(stats.warnings||[]).map(message=>`<li>${esc(message)}</li>`).join('')+'</ul>';
   q('#providers').innerHTML=states.map(s=>`<div class="provider"><b>${esc(s.name)}<span class="dot ${s.healthy?'ok':''}">●</span></b><small class="muted">${esc(s.detail)} · ${s.quote_count} котировок</small></div>`).join('')||'После первого сканирования';
   q('#alerts').innerHTML=alerts.length?alerts.map(a=>`<div class="provider">${esc(a.item_name)} · ${new Date(a.sent_at).toLocaleString('ru-RU')} · ${esc(a.status)}</div>`).join(''):'Уведомлений пока нет. В demo автоматическая отправка выключена.';
 }

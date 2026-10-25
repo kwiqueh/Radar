@@ -12,7 +12,7 @@
     q('#setup-usd').value = setup.usd_rub; q('#setup-eur').value = setup.eur_rub;
     q('#key-status').textContent = setup.csfloat_key_set ? 'Ключ CSFloat сохранён локально; значение не отображается.' : 'Ключ CSFloat не задан. Не присылайте его в чат.';
     document.querySelectorAll('[name="source"]').forEach(e => e.checked = setup.enabled_providers.includes(e.value));
-    q('#fee-profiles').innerHTML = ['csfloat','skinport','market_csgo'].map(name => {
+    q('#fee-profiles').innerHTML = ['csfloat','skinport'].map(name => {
       const fees = setup.venue_fees[name] || {};
       return `<fieldset class="fee-profile" data-venue="${name}"><legend>${esc(name)}</legend><div class="filter-grid">` +
         Object.entries(numericFees).map(([key,label]) => `<label>${label}<input data-fee="${key}" type="number" min="0" step="any" value="${esc(fees[key] || '0')}"></label>`).join('') +
@@ -37,7 +37,12 @@
   document.addEventListener('DOMContentLoaded', async () => {
     try {await loadSetup(); await catalog();} catch(e) {q('#setup-message').textContent = e.message;}
     q('#setup-form').onsubmit = async event => {
-      event.preventDefault(); const button = q('#apply-setup'); button.disabled = true;
+      event.preventDefault();
+      if(q('#setup-mode').value === 'live' && !q('#setup-terms').checked && !setup.api_terms_accepted) {
+        q('#setup-message').textContent = 'Для чтения реальных API подтвердите своё право использования выбранных источников. Курсы и комиссии для RUB-каталога не требуются.';
+        q('#setup-terms').focus(); return;
+      }
+      const button = q('#apply-setup'); button.disabled = true;
       q('#setup-message').textContent = 'Настройки сохраняются. Проверка источников может занять до двух минут…';
       const payload = {mode:q('#setup-mode').value,api_terms_accepted:q('#setup-terms').checked,
         enabled_providers:[...document.querySelectorAll('[name="source"]:checked')].map(e=>e.value),

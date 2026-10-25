@@ -18,7 +18,13 @@ class OpportunityScanner:
 
     def scan(self, quotes: list[MarketQuote]) -> list[Opportunity]:
         now = datetime.now(UTC)
-        if self.settings.mode == "live":
+        needs_fx = any(
+            q.currency != "RUB"
+            and q.provider in self.settings.enabled_providers
+            and q.kind in {QuoteKind.ACTIVE_LISTING, QuoteKind.BUY_ORDER}
+            for q in quotes
+        )
+        if self.settings.mode == "live" and needs_fx:
             verified = self.settings.fx_verified_at
             if verified is None or verified.tzinfo is None:
                 return []
